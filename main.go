@@ -10,6 +10,8 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(http.Dir(".")))
+	//	mux.Handle("/assets/logo.png", http.FileServer(http.Dir("assets/logo.png")))
+
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: mux,
