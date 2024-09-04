@@ -16,9 +16,9 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/app/", config.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer((http.Dir(filepathRoot))))))
-	mux.HandleFunc("GET /healthz", handlerReadiness)
-	mux.HandleFunc("GET /metrics", config.handlerHits)
-	mux.HandleFunc("GET /reset", config.handlerReset)
+	mux.HandleFunc("GET /api/healthz", config.handlerReadiness)
+	mux.HandleFunc("GET /api/metrics", config.handlerHits)
+	mux.HandleFunc("GET /api/reset", config.handlerReset)
 	//mux.HandleFunc("POST /healthz", handlerHealthzPost)
 
 	srv := &http.Server{
