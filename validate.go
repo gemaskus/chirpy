@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 )
 
 func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
@@ -11,62 +12,66 @@ func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 		MessageBody string `json:"body"`
 	}
 
-	type generalError struct {
-		MessageError string `json:"error"`
+	type success struct {
+		MessageSuccess bool   `json:"valid"`
+		CleanedBody    string `json:"cleaned_body"`
 	}
 
-	type success struct {
-		MessageSuccess bool `json:"valid"`
-	}
+	badwords := [3]string{"kerfuffle", "sharbert", "fornax"}
 
 	decoder := json.NewDecoder(r.Body)
 	body := postBody{}
 	if err := decoder.Decode(&body); err != nil {
-		log.Printf("error decoding the body %v", err)
-		errorBody := generalError{
-			MessageError: "Something went wrong",
-		}
-		dat, _ := json.Marshal(errorBody)
-
-		w.Header().Set("Content-Stype", "application/json")
-		w.WriteHeader(400)
-		w.Write(dat)
+		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters")
 		return
 	}
 	if len(body.MessageBody) > 140 {
-		errorBody := generalError{
-			MessageError: "Chirp is too long",
-		}
-
-		dat, _ := json.Marshal(errorBody)
-		w.Header().Set("Content-Stype", "application/json")
-		w.WriteHeader(400)
-		w.Write(dat)
+		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
 		return
 	}
+
+	splitRequest := strings.Split(body.MessageBody, " ")
+
+	for index, element := range splitRequest {
+		for _, badword := range badwords {
+			lowerElement := strings.ToLower(element)
+			if lowerElement == badword {
+				splitRequest[index] = "****"
+				break
+			}
+		}
+	}
+
+	newString := strings.Join(splitRequest, " ")
 
 	log.Printf(body.MessageBody)
 
-	successbody := success{
+	respondWithJSON(w, http.StatusOK, success{
 		MessageSuccess: true,
+		CleanedBody:    newString,
+	})
+}
+
+func respondWithError(w http.ResponseWriter, code int, msg string) {
+	if code > 499 {
+		log.Printf("Responding with 5XX error: %s", msg)
 	}
+	type errorResponse struct {
+		Error string `json:"error"`
+	}
+	respondWithJSON(w, code, errorResponse{
+		Error: msg,
+	})
+}
 
-	dat, err := json.Marshal(successbody)
-
+func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	dat, err := json.Marshal(payload)
 	if err != nil {
-		log.Printf("error marshalling the valid body")
-		errorBody := generalError{
-			MessageError: "Something went wrong",
-		}
-		dat, _ := json.Marshal(errorBody)
-
-		w.Header().Set("Content-Stype", "application/json")
-		w.WriteHeader(400)
-		w.Write(dat)
+		log.Printf("Error marshalling JSON: %s", err)
+		w.WriteHeader(500)
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+	w.WriteHeader(code)
 	w.Write(dat)
 }
