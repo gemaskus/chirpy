@@ -8,9 +8,18 @@ import (
 func main() {
 	const port = "8080"
 	const filepathRoot = "."
+	const DBFileName = "ChirpsDB.json"
+
+	dbFilePath := filepathRoot + "/" + DBFileName
 
 	config := &apiConfig{
 		FileserverHits: 0,
+	}
+
+	db, err := NewDB(dbFilePath)
+
+	if err != nil {
+		return //crash out for now
 	}
 
 	mux := http.NewServeMux()
@@ -18,7 +27,8 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", config.handlerReadiness)
 	mux.HandleFunc("GET /admin/metrics", config.handlerHits)
 	mux.HandleFunc("GET /api/reset", config.handlerReset)
-	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
+	mux.HandleFunc("POST /api/chirps", db.handlerValidateChirp)
+	mux.HandleFunc("GET /api/chirps", db.handlerReturnChirps)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
@@ -31,4 +41,5 @@ func main() {
 
 type apiConfig struct {
 	FileserverHits int
+	currentChirpID int
 }
