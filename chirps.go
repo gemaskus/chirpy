@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -28,11 +29,6 @@ type Chirp struct {
 func (db *DB) handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 	type postBody struct {
 		MessageBody string `json:"body"`
-	}
-
-	type success struct {
-		MessageSuccess bool   `json:"valid"`
-		CleanedBody    string `json:"cleaned_body"`
 	}
 
 	badwords := [3]string{"kerfuffle", "sharbert", "fornax"}
@@ -65,12 +61,18 @@ func (db *DB) handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Saving to file")
 
-	newChirp := db.CreateChirp(cleanedChirpBodyString)
+	newChirp, err := db.CreateChirp(cleanedChirpBodyString)
 
-	respondWithJSON(w, http.StatusOK, newChirp)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "could not create chirp")
+		return
+	}
+
+	respondWithJSON(w, http.StatusCreated, newChirp)
 }
 
 func NewDB(filePath string) (*DB, error) {
+	log.Printf("Creating new DB link")
 	db := DB{
 		path: filePath,
 		mux:  &sync.RWMutex{},
@@ -82,14 +84,23 @@ func NewDB(filePath string) (*DB, error) {
 }
 
 func (db *DB) ensureDB() error {
+	log.Printf("Ensuring the database exists")
 	_, err := os.ReadFile(db.path)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			//file doesn't exist, so we much create the file.
-			split := strings.Split(db.path, "/")
-			fileName := split[len(split)-1]
-			if err := os.WriteFile(fileName, []byte(""), 0666); err != nil {
+			log.Printf("DB File does not exist, creating DB file")
+			dbStructure := DBStructure{
+				Chirps: map[int]Chirp{},
+			}
+
+			dat, err := json.Marshal(dbStructure)
+
+			if err != nil {
+				return err
+			}
+
+			if err := os.WriteFile(db.path, dat, 0666); err != nil {
 				log.Fatal(err)
 				return err
 			}
@@ -102,45 +113,97 @@ func (db *DB) ensureDB() error {
 }
 
 func (db *DB) handlerReturnChirps(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Retrieving Chirps")
+	dbChirps, err := db.GetChirps()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't retrieve chirps")
+	}
 
+	chirps := []Chirp{}
+	for _, dbChirp := range dbChirps {
+		chirps = append(chirps, Chirp{
+			ID:   dbChirp.ID,
+			Body: dbChirp.Body,
+		})
+	}
+
+	sort.Slice(chirps, func(i, j int) bool {
+		return chirps[i].ID < chirps[j].ID
+	})
+
+	respondWithJSON(w, http.StatusOK, chirps)
 }
 
 func (db *DB) CreateChirp(body string) (Chirp, error) {
+	log.Printf("Creating Chirp")
 	currentDBStructure, err := db.loadDB()
 
 	if err != nil {
 		return Chirp{}, fmt.Errorf("Create Chirp: %v", err)
 	}
 
-	return Chirp{}, nil
+	id := len(currentDBStructure.Chirps) + 1
+
+	newChirp := Chirp{
+		ID:   id,
+		Body: body,
+	}
+
+	currentDBStructure.Chirps[id] = newChirp
+
+	db.writeDB(currentDBStructure)
+
+	return newChirp, nil
 }
 
 func (db *DB) GetChirps() ([]Chirp, error) {
-	return []Chirp{}, nil
+	log.Printf("Retrieving Chirps from DB")
+	dbStruct, err := db.loadDB()
+	if err != nil {
+		return nil, err
+	}
+
+	chirps := make([]Chirp, 0, len(dbStruct.Chirps))
+
+	for _, chirp := range dbStruct.Chirps {
+		chirps = append(chirps, chirp)
+	}
+
+	return chirps, nil
 }
 
 func (db *DB) loadDB() (DBStructure, error) {
+	log.Printf("Loading Chirp DB")
 	db.mux.RLock()
 	defer db.mux.RUnlock()
 
-	split := strings.Split(db.path, "/")
-	fileName := split[len(split)-1]
-
 	dbStructure := DBStructure{}
-	fileContents, err := os.ReadFile(fileName)
+	fileContents, err := os.ReadFile(db.path)
 
 	if errors.Is(err, os.ErrNotExist) {
-		return dbStructure, fmt.Errorf("loadDB: Cannot read from given file: %s with error %v", fileName, err)
+		return dbStructure, fmt.Errorf("loadDB: Cannot read from given file: %s with error %v", db.path, err)
 	}
 
 	if err := json.Unmarshal(fileContents, &dbStructure); err != nil {
-		return dbStructure, fmt.Errorf("loadDB: Cannot unmarshal the data read from the file: %s with error: %v".fileName, err)
+		return dbStructure, fmt.Errorf("loadDB: Cannot unmarshal the data read from the file: %s with error: %v", db.path, err)
 	}
 
 	return dbStructure, nil
 }
 
 func (db *DB) writeDB(dbStructure DBStructure) error {
+	log.Printf("Writing Chirp DB to file")
+	db.mux.RLock()
+	defer db.mux.RUnlock()
+
+	dat, err := json.Marshal(dbStructure)
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(db.path, dat, 0666); err != nil {
+		return err
+	}
 	return nil
 }
 
