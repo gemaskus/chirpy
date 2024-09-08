@@ -28,7 +28,7 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", config.handlerHits)
 	mux.HandleFunc("GET /api/reset", config.handlerReset)
 	mux.HandleFunc("POST /api/chirps", db.handlerValidateChirp)
-	mux.HandleFunc("GET /api/chirps", db.handlerReturnChirps)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", db.handlerReturnChirps)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
