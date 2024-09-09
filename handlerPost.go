@@ -7,11 +7,11 @@ import (
 	"strings"
 )
 
-func (db *DB) handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
-	type postBody struct {
-		MessageBody string `json:"body"`
-	}
+type postBody struct {
+	MessageBody string `json:"body"`
+}
 
+func (db *DB) handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 	badwords := [3]string{"kerfuffle", "sharbert", "fornax"}
 
 	decoder := json.NewDecoder(r.Body)
@@ -51,3 +51,25 @@ func (db *DB) handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 
 	respondWithJSON(w, http.StatusCreated, newChirp)
 }
+
+func (db *DB) handlerPostUsers(w http.ResponseWriter, r *http.Request) {
+	body := postBody{
+		MessageBody: ""
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder(&body); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not decode the message body")
+	}
+	
+}
+
+
+
+
+
+
+
+
+
+

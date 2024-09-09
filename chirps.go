@@ -11,11 +11,11 @@ type Chirp struct {
 }
 
 func (db *DB) CreateChirp(body string) (Chirp, error) {
-	log.Printf("Creating Chirp")
+	log.Printf("Creating Chirp: %s", body)
 	currentDBStructure, err := db.loadDB()
 
 	if err != nil {
-		return Chirp{}, fmt.Errorf("Create Chirp: %v", err)
+		return Chirp{}, fmt.Errorf("Create Chirp Error: %v", err)
 	}
 
 	id := len(currentDBStructure.Chirps) + 1
