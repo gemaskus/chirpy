@@ -16,6 +16,7 @@ type DB struct {
 
 type DBStructure struct {
 	Chirps map[int]Chirp `json:"chirps"`
+	Users  map[int]User  `json:"users"`
 }
 
 func NewDB(filePath string) (*DB, error) {
@@ -39,6 +40,7 @@ func (db *DB) ensureDB() error {
 			log.Printf("DB File does not exist, creating DB file")
 			dbStructure := DBStructure{
 				Chirps: map[int]Chirp{},
+				Users:  map[int]User{},
 			}
 
 			dat, err := json.Marshal(dbStructure)

@@ -9,6 +9,7 @@ import (
 
 type postBody struct {
 	MessageBody string `json:"body"`
+	EmailBody   string `json:"email"`
 }
 
 func (db *DB) handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
@@ -53,23 +54,22 @@ func (db *DB) handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 }
 
 func (db *DB) handlerPostUsers(w http.ResponseWriter, r *http.Request) {
-	body := postBody{
-		MessageBody: ""
-	}
+	body := postBody{}
 
 	decoder := json.NewDecoder(r.Body)
-	if err := decoder(&body); err != nil {
+	if err := decoder.Decode(&body); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Could not decode the message body")
+		return
 	}
-	
+
+	log.Printf("Saving new user to file")
+
+	newUser, err := db.CreateUser(body.EmailBody)
+
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "could not create user")
+		return
+	}
+
+	respondWithJSON(w, http.StatusCreated, newUser)
 }
-
-
-
-
-
-
-
-
-
-
