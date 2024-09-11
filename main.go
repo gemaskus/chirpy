@@ -34,6 +34,7 @@ func main() {
 	mux.HandleFunc("POST /api/chirps", chirpDB.handlerValidateChirp)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", chirpDB.handlerReturnChirps)
 	mux.HandleFunc("POST /api/users", userDB.handlerPostUsers)
+	mux.HandleFunc("POST /api/login", userDB.handlePostLogin)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
